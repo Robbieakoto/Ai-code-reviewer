@@ -50,7 +50,13 @@ Built for the **Build with AI Workshop** by Google Developer Group.
 
    ```env
    GEMINI_API_KEY=your_api_key_here
-   PORT=8080
+   PORT=3000
+   ```
+
+   Or just copy the example file:
+
+   ```bash
+   cp .env.example .env
    ```
 
 4. **Start the server**
@@ -63,7 +69,7 @@ Built for the **Build with AI Workshop** by Google Developer Group.
    npm run dev
    ```
 
-5. Open [http://localhost:8080](http://localhost:8080) in your browser.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Usage
 
@@ -89,4 +95,4 @@ Built for the **Build with AI Workshop** by Google Developer Group.
 | Variable         | Description                              | Required |
 |------------------|------------------------------------------|----------|
 | `GEMINI_API_KEY` | Your Google Gemini API key               | Yes      |
-| `PORT`           | Server port (defaults to 8080)           | No       |
+| `PORT`           | Server port (defaults to 3000)           | No       |
