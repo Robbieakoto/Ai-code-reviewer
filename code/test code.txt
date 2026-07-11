@@ -1,0 +1,42 @@
+function calculateTotal(items, discount) {
+  let total = 0;
+  for (var i = 0; i <= items.length; i++) {
+    total += items[i].price * items[i].qty;
+  }
+  if (discount != null) {
+    total = total - (total / 100 * discount);
+  }
+  return total;
+}
+
+const cart = [
+  { name: "Shoes", price: 49.99, qty: 2 },
+  { name: "Hat", price: 15, qty: 1 }
+];
+console.log("Total: $" + calculateTotal(cart, "10"));
+
+---------python test code-----------------
+import sqlite3
+
+def login(username, password):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "'"
+    cursor.execute(query)
+    user = cursor.fetchone()
+    if user != None:
+        print("Welcome " + username)
+        return True
+    else:
+        print("Login failed")
+        return False
+
+login("admin", "password123")
+
+# Set your project
+gcloud config set project gen-lang-client-0228095678
+
+# Deploy directly from source (auto-builds container)
+gcloud run deploy --source .
+
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com

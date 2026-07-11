@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Code Reviewer — Build with AI Workshop</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f0f4f8;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────── */
+    header {
+      background: #1a73e8;
+      color: white;
+      padding: 1.2rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    header svg { flex-shrink: 0; }
+    header h1 { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; }
+    header p  { font-size: 0.8rem; opacity: 0.85; margin-top: 2px; }
+
+    /* ── Main layout ──────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* ── Input card ───────────────────────────────────────────────────── */
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .card label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    select {
+      padding: 0.5rem 0.75rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      background: white;
+      color: #1e293b;
+      cursor: pointer;
+    }
+    select:focus { outline: none; border-color: #1a73e8; }
+
+    textarea {
+      width: 100%;
+      height: 240px;
+      font-family: "Fira Code", "Cascadia Code", "Courier New", monospace;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      padding: 1rem;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      resize: vertical;
+      background: #fafafa;
+      color: #1e293b;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { outline: none; border-color: #1a73e8; background: white; }
+
+    button#reviewBtn {
+      margin-top: 0.75rem;
+      width: 100%;
+      padding: 0.85rem;
+      background: #1a73e8;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+    button#reviewBtn:hover  { background: #1558b0; }
+    button#reviewBtn:active { transform: scale(0.98); }
+    button#reviewBtn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    /* ── Spinner ──────────────────────────────────────────────────────── */
+    .spinner {
+      display: none;
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ──────────────────────────────────────────────────────── */
+    #results { display: none; }
+
+    .verdict {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+      padding: 1rem 1.25rem;
+      background: #f1f5f9;
+      border-left: 4px solid #1a73e8;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1rem;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+
+    .result-card {
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+      border: 1.5px solid transparent;
+    }
+    .result-card.bugs        { background: #fff1f2; border-color: #fecdd3; }
+    .result-card.security    { background: #fff7ed; border-color: #fed7aa; }
+    .result-card.improvements{ background: #f0fdf4; border-color: #bbf7d0; }
+
+    .result-card h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.7rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .bugs         h3 { color: #be123c; }
+    .security     h3 { color: #c2410c; }
+    .improvements h3 { color: #15803d; }
+
+    .result-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+    .result-card li {
+      font-size: 0.88rem;
+      line-height: 1.55;
+      padding-left: 1rem;
+      position: relative;
+      color: #334155;
+    }
+    .result-card li::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+    }
+    .bugs         li::before { color: #be123c; }
+    .security     li::before { color: #c2410c; }
+    .improvements li::before { color: #15803d; }
+
+    .empty-note {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* ── Perfect code banner ─────────────────────────────────────────── */
+    #perfectBanner {
+      display: none;
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .perfect-icon {
+      font-size: 3.5rem;
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+
+    #perfectBanner h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #15803d;
+      margin-bottom: 0.5rem;
+    }
+
+    #perfectMessage {
+      font-size: 0.95rem;
+      color: #475569;
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Fixed code panel ─────────────────────────────────────────────── */
+    #fixedSection {
+      display: none;
+    }
+
+    .fixed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .fixed-header h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #1a73e8;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    #copyBtn {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #copyBtn:hover { background: #1558b0; }
+    #copyBtn.copied { background: #15803d; }
+
+    #fixedCode {
+      width: 100%;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: "Fira Code", "Cascadia Code", "Courier New", monospace;
+      font-size: 0.85rem;
+      line-height: 1.7;
+      padding: 1.25rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre;
+      border: 1.5px solid #1e293b;
+    }
+
+    /* ── Error banner ─────────────────────────────────────────────────── */
+    #errorBanner {
+      display: none;
+      padding: 0.85rem 1.25rem;
+      background: #fff1f2;
+      border: 1.5px solid #fecdd3;
+      border-radius: 8px;
+      color: #be123c;
+      font-size: 0.9rem;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      padding: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <!-- Google-style Gemini spark icon -->
+  <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="18" cy="18" r="18" fill="white" fill-opacity="0.15"/>
+    <path d="M18 6 C18 6 20 14 26 18 C20 22 18 30 18 30 C18 30 16 22 10 18 C16 14 18 6 18 6Z" fill="white"/>
+  </svg>
+  <div>
+    <h1>AI Code Reviewer</h1>
+    <p>Powered by Google Gemini · Build with AI Workshop</p>
+  </div>
+</header>
+
+<main>
+  <!-- Input card -->
+  <div class="card">
+    <div class="controls">
+      <div>
+        <label for="language">Language</label>
+        <select id="language">
+          <option value="JavaScript">JavaScript</option>
+          <option value="TypeScript">TypeScript</option>
+          <option value="Python">Python</option>
+          <option value="Java">Java</option>
+          <option value="Go">Go</option>
+          <option value="Rust">Rust</option>
+          <option value="C++">C++</option>
+          <option value="SQL">SQL</option>
+          <option value="Bash">Bash</option>
+          <option value="code">Other</option>
+        </select>
+      </div>
+    </div>
+
+    <label for="codeInput">Paste your code</label>
+    <textarea id="codeInput" placeholder="// Paste the code you want reviewed here…
+function calculateTotal(items) {
+  let total = 0;
+  for (var i = 0; i <= items.length; i++) {
+    total += items[i].price;
+  }
+  return total;
+}"></textarea>
+
+    <button id="reviewBtn" onclick="reviewCode()">
+      <span id="btnText">Review my code</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+  </div>
+
+  <!-- Error banner -->
+  <div id="errorBanner"></div>
+
+  <!-- Perfect code banner -->
+  <div id="perfectBanner" class="card">
+    <div class="perfect-icon">🏆</div>
+    <h2>Excellent Code!</h2>
+    <p id="perfectMessage"></p>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="card">
+    <div class="verdict" id="verdict"></div>
+    <div class="section-grid">
+      <div class="result-card bugs">
+        <h3>🐛 Bugs</h3>
+        <ul id="bugsList"></ul>
+      </div>
+      <div class="result-card security">
+        <h3>🔐 Security</h3>
+        <ul id="securityList"></ul>
+      </div>
+      <div class="result-card improvements">
+        <h3>✨ Improvements</h3>
+        <ul id="improvementsList"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed code -->
+  <div id="fixedSection" class="card">
+    <div class="fixed-header">
+      <h3>🔧 Fixed Code</h3>
+      <button id="copyBtn" onclick="copyFixed()">Copy</button>
+    </div>
+    <pre id="fixedCode"></pre>
+  </div>
+</main>
+
+<script>
+  async function reviewCode() {
+    const code     = document.getElementById("codeInput").value.trim();
+    const language = document.getElementById("language").value;
+    const btn      = document.getElementById("reviewBtn");
+    const spinner  = document.getElementById("spinner");
+    const btnText  = document.getElementById("btnText");
+    const results  = document.getElementById("results");
+    const errorBanner = document.getElementById("errorBanner");
+
+    if (!code) {
+      showError("Please paste some code before reviewing.");
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    spinner.style.display = "block";
+    btnText.textContent = "Reviewing…";
+    results.style.display = "none";
+    errorBanner.style.display = "none";
+
+    try {
+      const res = await fetch("/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, language }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown server error." }));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      renderResults(data);
+    } catch (err) {
+      showError(err.message);
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = "none";
+      btnText.textContent = "Review with Gemini";
+    }
+  }
+
+  function renderResults(data) {
+    const perfectBanner = document.getElementById("perfectBanner");
+    const results       = document.getElementById("results");
+    const fixedSection  = document.getElementById("fixedSection");
+
+    const noBugs     = !data.bugs     || data.bugs.length === 0;
+    const noSecurity = !data.security || data.security.length === 0;
+
+    if (data.perfect || (noBugs && noSecurity)) {
+      // No bugs and no security issues — congratulate, skip everything else
+      document.getElementById("perfectMessage").textContent = data.verdict || "Your code looks great — no bugs or security issues found!";
+      perfectBanner.style.display = "block";
+      results.style.display       = "none";
+      fixedSection.style.display  = "none";
+      perfectBanner.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    // There are bugs or security issues — show full review + fixed code
+    perfectBanner.style.display = "none";
+    document.getElementById("verdict").textContent = data.verdict || "Review complete.";
+    populateList("bugsList",         data.bugs);
+    populateList("securityList",     data.security);
+    populateList("improvementsList", data.improvements);
+    results.style.display = "block";
+
+    if (data.fixedCode && data.fixedCode.trim()) {
+      document.getElementById("fixedCode").textContent = data.fixedCode;
+      fixedSection.style.display = "block";
+    } else {
+      fixedSection.style.display = "none";
+    }
+
+    results.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function copyFixed() {
+    const code = document.getElementById("fixedCode").textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      const btn = document.getElementById("copyBtn");
+      btn.textContent = "Copied!";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = "Copy";
+        btn.classList.remove("copied");
+      }, 2000);
+    });
+  }
+
+  function populateList(id, items) {
+    const ul = document.getElementById(id);
+    ul.innerHTML = "";
+    if (!items || items.length === 0) {
+      ul.innerHTML = '<li class="empty-note">None found</li>';
+      return;
+    }
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.textContent = item;
+      ul.appendChild(li);
+    });
+  }
+
+  function showError(msg) {
+    const banner = document.getElementById("errorBanner");
+    banner.textContent = "⚠ " + msg;
+    banner.style.display = "block";
+  }
+
+  // Allow Ctrl+Enter to submit
+  document.getElementById("codeInput").addEventListener("keydown", e => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) reviewCode();
+  });
+</script>
+
+</body>
+</html>
